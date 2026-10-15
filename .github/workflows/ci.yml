@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: mortgage
+          POSTGRES_PASSWORD: mortgage
+          POSTGRES_DB: mortgage
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U mortgage -d mortgage"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://mortgage:mortgage@localhost:5434/mortgage
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Зависимости из файла блокировки
+        run: make install
+
+      - name: Миграции
+        run: make migrate
+
+      - name: Линтер
+        run: make lint
+
+      - name: Тесты
+        run: make test
