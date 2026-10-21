@@ -3,6 +3,7 @@ from pydantic import ValidationError
 
 from app.schemas.assistant import AskRequest, AssistantAnswer
 from app.services import assistant
+from app.services.json_utils import ModelOutputError
 
 router = APIRouter(tags=["assistant"])
 
@@ -11,6 +12,8 @@ router = APIRouter(tags=["assistant"])
 async def ask(body: AskRequest):
     try:
         answer = await assistant.ask(body.loan_id, body.question)
+    except ModelOutputError as exc:
+        raise HTTPException(502, f"ответ модели не по формату: {exc}") from exc
     except ValidationError as exc:
         raise HTTPException(502, "ответ модели не по формату") from exc
     if answer is None:

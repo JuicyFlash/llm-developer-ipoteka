@@ -60,3 +60,23 @@ def test_fenced_answer_is_accepted(monkeypatch):
 
     monkeypatch.setattr(assistant, "run_agent", run)
     assert client.post("/ask", json={"loan_id": 1, "question": "..."}).json()["answer"] == ANSWER.answer
+
+
+def test_answer_with_text_around_is_accepted(monkeypatch):
+    async def run(agent, prompt, context=None):
+        return SimpleNamespace(final_output="Конечно! " + ANSWER.model_dump_json() + "\nНадеюсь, помог")
+
+    monkeypatch.setattr(assistant, "run_agent", run)
+    resp = client.post("/ask", json={"loan_id": 1, "question": "..."})
+    assert resp.status_code == 200
+    assert resp.json()["answer"] == ANSWER.answer
+
+
+def test_garbage_answer_has_clear_error(monkeypatch):
+    async def run(agent, prompt, context=None):
+        return SimpleNamespace(final_output='{"answer": "...",,')
+
+    monkeypatch.setattr(assistant, "run_agent", run)
+    resp = client.post("/ask", json={"loan_id": 1, "question": "..."})
+    assert resp.status_code == 502
+    assert "битый JSON" in resp.json()["detail"]

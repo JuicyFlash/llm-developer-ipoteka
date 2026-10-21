@@ -11,13 +11,13 @@ from app.llm import client
 async def test_run_agent_passes_budget_and_context(monkeypatch):
     seen = {}
 
-    async def fake_run(agent, prompt, *, context=None, max_turns=None):
-        seen.update(context=context, max_turns=max_turns)
+    async def fake_run(agent, prompt, *, context=None, max_turns=None, run_config=None):
+        seen.update(context=context, max_turns=max_turns, provider=type(run_config.model_provider).__name__)
         return SimpleNamespace(new_items=[])
 
     monkeypatch.setattr(client.Runner, "run", fake_run)
     await client.run_agent(SimpleNamespace(name="A"), "вопрос", context="ctx")
-    assert seen == {"context": "ctx", "max_turns": settings.agent_max_turns}
+    assert seen == {"context": "ctx", "max_turns": settings.agent_max_turns, "provider": "OpenAIProvider"}
 
 
 def test_retries_live_in_http_client():

@@ -5,7 +5,7 @@ from app.agents.tools import ClientContext
 from app.llm.client import run_agent
 from app.schemas.assistant import AssistantAnswer
 from app.services import loans
-from app.services.json_utils import strip_fence
+from app.services.json_utils import extract_json
 
 HANDOFF = AssistantAnswer(
     intent="other",
@@ -22,4 +22,4 @@ async def ask(loan_id: int, question: str) -> AssistantAnswer | None:
         result = await run_agent(assistant_agent, question, ClientContext(loan_id))
     except MaxTurnsExceeded:
         return HANDOFF
-    return AssistantAnswer.model_validate_json(strip_fence(result.final_output))
+    return AssistantAnswer.model_validate(extract_json(result.final_output))
