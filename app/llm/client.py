@@ -40,11 +40,11 @@ def setup_llm() -> RunConfig:
     return _run_config
 
 
-async def run_agent(agent: Agent, prompt: str, context=None) -> RunResult:
+async def run_agent(agent: Agent, input: str | list, context=None) -> RunResult:
     run_config = setup_llm()
     started = time.monotonic()
     result = await asyncio.wait_for(
-        Runner.run(agent, prompt, context=context, max_turns=settings.agent_max_turns, run_config=run_config),
+        Runner.run(agent, input, context=context, max_turns=settings.agent_max_turns, run_config=run_config),
         timeout=settings.agent_timeout_s,
     )
     tools = [i.raw_item.name for i in result.new_items if i.type == "tool_call_item"]
