@@ -8,6 +8,7 @@ from app.core.logging import get_logger
 from app.llm.client import run_agent
 from app.schemas.assistant import AssistantAnswer
 from app.services import loans
+from app.services.amount_check import check_amounts, tool_outputs
 from app.services.json_utils import ModelOutputError, extract_json
 
 log = get_logger(__name__)
@@ -20,13 +21,16 @@ HANDOFF = AssistantAnswer(
 )
 
 REPAIR = (
-    "Твой ответ не по формату: {error}. Исправь его и верни только JSON-объект по схеме, "
+    "Твой ответ не прошел проверку: {error}. Исправь его и верни только JSON-объект по схеме, "
     "без текста вокруг. Инструменты заново не вызывай — их результаты выше."
 )
 
 
-def _parse(output: str) -> AssistantAnswer:
-    return AssistantAnswer.model_validate(extract_json(output))
+def _parse(result, question: str) -> AssistantAnswer:
+    answer = AssistantAnswer.model_validate(extract_json(result.final_output))
+    # История включает и прошлые попытки, так что результаты инструментов не теряются при лечении.
+    check_amounts(answer.answer, tool_outputs(result.to_input_list()) + [question])
+    return answer
 
 
 def _describe(err: ModelOutputError | ValidationError) -> str:
@@ -45,7 +49,7 @@ async def ask(loan_id: int, question: str) -> AssistantAnswer | None:
         for attempt in range(settings.agent_max_repairs + 1):
             result = await run_agent(assistant_agent, run_input, context)
             try:
-                return _parse(result.final_output)
+                return _parse(result, question)
             except (ModelOutputError, ValidationError) as err:
                 error = _describe(err)
                 log.warning("answer_repair", attempt=attempt, error=error)
