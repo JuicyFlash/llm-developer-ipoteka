@@ -41,6 +41,11 @@ def fake_run(monkeypatch, *outputs):
     return calls
 
 
+@pytest.fixture(autouse=True)
+def confidence_threshold(monkeypatch):
+    monkeypatch.setattr(assistant.settings, "agent_min_confidence", 0.7)
+
+
 @pytest.fixture
 def no_db(monkeypatch):
     monkeypatch.setattr(assistant.loans, "get_loan", lambda loan_id: object())
@@ -122,3 +127,18 @@ async def test_invented_amount_twice_goes_to_human(monkeypatch, no_db):
     calls = fake_run(monkeypatch, wrong.model_dump_json())
     assert await assistant.ask(1, "...") == assistant.HANDOFF
     assert len(calls) == 3
+
+
+@pytest.mark.asyncio
+async def test_low_confidence_goes_to_human(monkeypatch, no_db):
+    low = ANSWER.model_copy(update={"confidence": 0.3})
+    calls = fake_run(monkeypatch, low.model_dump_json())
+    assert await assistant.ask(1, "...") == low.model_copy(update={"needs_human": True})
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_confidence_at_threshold_is_trusted(monkeypatch, no_db):
+    edge = ANSWER.model_copy(update={"confidence": 0.7})
+    fake_run(monkeypatch, edge.model_dump_json())
+    assert (await assistant.ask(1, "...")).needs_human is False

@@ -49,11 +49,17 @@ async def ask(loan_id: int, question: str) -> AssistantAnswer | None:
         for attempt in range(settings.agent_max_repairs + 1):
             result = await run_agent(assistant_agent, run_input, context)
             try:
-                return _parse(result, question)
+                answer = _parse(result, question)
             except (ModelOutputError, ValidationError) as err:
                 error = _describe(err)
                 log.warning("answer_repair", attempt=attempt, error=error)
                 run_input = result.to_input_list() + [{"role": "user", "content": REPAIR.format(error=error)}]
+                continue
+            # Неуверенный ответ отдаем клиенту, но помечаем для сотрудника.
+            if answer.confidence < settings.agent_min_confidence:
+                log.info("low_confidence", confidence=answer.confidence, threshold=settings.agent_min_confidence)
+                answer = answer.model_copy(update={"needs_human": True})
+            return answer
     except MaxTurnsExceeded:
         return HANDOFF
     return HANDOFF

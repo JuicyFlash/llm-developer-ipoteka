@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,6 +17,7 @@ class Settings(BaseSettings):
     agent_max_turns: int = 6
     agent_timeout_s: float = 300.0
     agent_max_repairs: int = 2
+    agent_min_confidence: float = Field(default=0.7, ge=0, le=1)
 
 
 settings = Settings()
